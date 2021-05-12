@@ -1,0 +1,192 @@
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(behindbarstools)
+library(tigris)
+library(sf)
+library(lubridate)
+library(plotly)
+
+gen_df <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/" %>%
+    str_c("us.csv") %>%
+    read_csv(col_types = cols()) %>%
+    select(Date = date, Cases = cases, Deaths = deaths) %>%
+    arrange(Date) %>%
+    # not necessary but a good sanity check
+    distinct(Date, .keep_all = TRUE) %>%
+    mutate(New_Cases = diff_roll_sum(Cases, Date)) %>%
+    mutate(Population = 328200000) %>%
+    mutate(Name = "United States\nPopulation")
+
+pop_df <- "https://raw.githubusercontent.com/vera-institute/ice-" %>%
+    str_c("detention-covid/master/data_daily/national_population_daily.csv") %>%
+    read_csv(col_types = cols()) %>%
+    select(Date = ice_date_as_of_pop, Population = population_current) %>%
+    distinct(Date, .keep_all = TRUE) %>%
+    full_join(
+        "https://raw.githubusercontent.com/vera-institute/ice-detention" %>%
+            str_c("-covid/master/data_daily/national_cases_daily.csv") %>%
+            read_csv(col_types = cols()) %>%
+            select(
+                Date = ice_date_updated,
+                Cases = cases_cumulative,
+                Active = cases_current) %>%
+            mutate(Date = as_date(Date)) %>%
+            group_by(Date) %>%
+            summarize(
+                Cases = max(Cases),
+                Active = max(Active),
+                .groups = "drop"
+            ),
+        by = "Date"
+    ) %>%
+    full_join(
+        "https://raw.githubusercontent.com/vera-institute/ice-detention-" %>%
+            str_c("covid/master/data_daily/national_tests_daily.csv") %>%
+            read_csv(col_types = cols()) %>%
+            select(Date = ice_date_as_of_test, Tests = tests_cumulative) %>%
+            mutate(Date = as_date(Date)) %>%
+            # bad data here
+            filter(Date != ymd("2020-12-04")) %>%
+            group_by(Date) %>%
+            filter(Tests == max(Tests)) %>%
+            filter(1:n() == 1) %>%
+            ungroup() %>%
+            arrange(Date) %>%
+            mutate(New_Tests = diff_roll_sum(Tests, Date)),
+        by = "Date"
+    ) %>%
+    arrange(Date) %>%
+    mutate(New_Cases = diff_roll_sum(Cases, Date)) %>%
+    mutate(TPR = New_Cases/New_Tests) %>%
+    mutate(Name = "ICE Detainee\nPopulation")
+```
+
+## ICE Detention Population
+
+```{r}
+pop_plot <- pop_df %>%
+    filter(!is.na(Population)) %>%
+    mutate(name = "") %>%
+    ggplot(aes(x = Date, y=Population)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    theme_behindbars() +
+    scale_color_bbdiscrete() +
+    scale_y_continuous(limits = c(0,NA)) +
+    labs(y="ICE Detainee Population") +
+    theme(legend.position = "none")
+
+ggplotly(pop_plot)
+```
+
+## Percent Population Actively Infected
+
+```{r}
+active_plot <- pop_df %>%
+    filter(Date >= "2020-10-16") %>%
+    mutate(AR = Active / Population) %>%
+    mutate(NCR = New_Cases/ Population) %>%
+    select(Date, AR, NCR) %>%
+    pivot_longer(-Date) %>%
+    filter(!is.na(value)) %>%
+    mutate(name = ifelse(
+        name == "AR", "Active\nCase Rate", "New 14-Day\nCase Rate")) %>%
+    ggplot(aes(x = Date, y=value, color = name)) +
+    geom_line(size=1.25) +
+    geom_point(size=2.5) +
+    theme_behindbars() +
+    scale_color_bbdiscrete() +
+    scale_y_continuous(labels=scales::percent, limits = c(0,NA)) +
+    labs(y="Percent Actively Infected", color = "")
+
+ggplotly(active_plot)
+```
+
+## New Tests Administered
+
+```{r}
+new_tests_plot <- pop_df %>%
+    filter(Date >= "2020-10-16") %>%
+    mutate(AR = Active / Population) %>%
+    mutate(NCR = New_Cases/ Population) %>%
+    select(Date, New_Tests) %>%
+    filter(!is.na(New_Tests)) %>%
+    ggplot(aes(x = Date, y = New_Tests)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    geom_point(size=2.5, color = "#D7790F") +
+    theme_behindbars() +
+    labs(y="New Tests\n(Past 14 days)")
+
+ggplotly(new_tests_plot)
+
+```
+
+## Test Positivity Rate
+
+```{r}
+test_rate_plot <- pop_df %>%
+    filter(Date >= "2020-10-16") %>%
+    mutate(AR = Active / Population) %>%
+    mutate(NCR = New_Cases/ Population) %>%
+    select(Date, TPR) %>%
+    filter(!is.na(TPR)) %>%
+    ggplot(aes(x = Date, y = TPR)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    geom_point(size=2.5, color = "#D7790F") +
+    theme_behindbars() +
+    labs(y="Test Positivity Rate\n(Past 14 days)")
+
+ggplotly(test_rate_plot)
+```
+
+## Case Outbreaks (Active Cases)
+
+```{r}
+hist_imm <- read_scrape_data(TRUE) %>%
+    filter(Jurisdiction == "immigration")
+
+active_fac_plot <- hist_imm %>%
+    filter(Date == max(Date)) %>%
+    arrange(-Residents.Active) %>%
+    head() %>%
+    pull(Facility.ID) %>%
+    {hist_imm[hist_imm$Facility.ID %in% .,]} %>%
+    filter(Date >= ymd("2020-10-15")) %>%
+    ggplot(aes(x=Date, y=Residents.Active, color = Name)) +
+    geom_line(size=1.25) +
+    scale_color_bbdiscrete() +
+    theme_behindbars() +
+    theme(legend.position = "none") +
+    labs(y="Active Cases")
+    
+ggplotly(active_fac_plot)
+```
+
+## Case Outbreaks (New Cases)
+
+```{r}
+hist_imm_ncr <- hist_imm %>%
+    select(Facility.ID, Date, Residents.Confirmed, Name) %>%
+    filter(!is.na(Residents.Confirmed)) %>%
+    arrange(Facility.ID, Date) %>%
+    group_by(Facility.ID) %>%
+    mutate(New_Cases = diff_roll_sum(Residents.Confirmed, Date)) %>%
+    ungroup()
+
+new_case_fac_plot <- hist_imm_ncr %>%
+    filter(Date == max(Date)) %>%
+    arrange(-New_Cases) %>%
+    head() %>%
+    pull(Facility.ID) %>%
+    {hist_imm_ncr[hist_imm_ncr$Facility.ID %in% .,]} %>%
+    filter(Date >= ymd("2020-12-15")) %>%
+    ggplot(aes(x=Date, y=New_Cases, color = Name)) +
+    geom_line(size=1.25) +
+    scale_color_bbdiscrete() +
+    theme_behindbars() +
+    theme(legend.position = "none") +
+    labs(y="New Cases\nPast 14 Days")
+    
+ggplotly(new_case_fac_plot)
+```
