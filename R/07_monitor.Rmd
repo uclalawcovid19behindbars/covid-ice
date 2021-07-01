@@ -1,10 +1,9 @@
+# ICE Data Highlights
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 rm(list=ls())
 library(tidyverse)
 library(behindbarstools)
-library(tigris)
-library(sf)
 library(lubridate)
 library(plotly)
 
@@ -65,7 +64,7 @@ pop_df <- "https://raw.githubusercontent.com/vera-institute/ice-" %>%
 
 ## ICE Detention Population
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 pop_plot <- pop_df %>%
     filter(!is.na(Population)) %>%
     mutate(name = "") %>%
@@ -82,7 +81,7 @@ ggplotly(pop_plot)
 
 ## Percent Population Actively Infected
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 active_plot <- pop_df %>%
     filter(Date >= "2020-10-16") %>%
     mutate(AR = Active / Population) %>%
@@ -105,9 +104,9 @@ ggplotly(active_plot)
 
 ## New Tests Administered
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 new_tests_plot <- pop_df %>%
-    filter(Date >= "2020-10-16") %>%
+    #filter(Date >= "2020-10-16") %>%
     mutate(AR = Active / Population) %>%
     mutate(NCR = New_Cases/ Population) %>%
     select(Date, New_Tests) %>%
@@ -124,7 +123,7 @@ ggplotly(new_tests_plot)
 
 ## Test Positivity Rate
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 test_rate_plot <- pop_df %>%
     filter(Date >= "2020-10-16") %>%
     mutate(AR = Active / Population) %>%
@@ -142,7 +141,7 @@ ggplotly(test_rate_plot)
 
 ## Case Outbreaks (Active Cases)
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 hist_imm <- read_scrape_data(TRUE) %>%
     filter(Jurisdiction == "immigration")
 
@@ -165,10 +164,11 @@ ggplotly(active_fac_plot)
 
 ## Case Outbreaks (New Cases)
 
-```{r}
+```{r warning=F, message=F, echo=FALSE}
 hist_imm_ncr <- hist_imm %>%
     select(Facility.ID, Date, Residents.Confirmed, Name) %>%
     filter(!is.na(Residents.Confirmed)) %>%
+    filter(!is.na(Facility.ID)) %>%
     arrange(Facility.ID, Date) %>%
     group_by(Facility.ID) %>%
     mutate(New_Cases = diff_roll_sum(Residents.Confirmed, Date)) %>%

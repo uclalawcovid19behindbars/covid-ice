@@ -37,12 +37,23 @@ vera_df <- "https://raw.githubusercontent.com/vera-institute/ice-" %>%
             str_c("covid/master/data_daily/national_cases_daily.csv") %>%
             read_csv(col_types = cols()) %>%
             select(
+                Cases = cases_cumulative,
                 Date = page_downloaded_day,
                 Active = cases_current) %>%
             arrange(Date) %>%
             distinct(Date, .keep_all = TRUE),
         by = "Date"
     )
+
+vera_df %>%
+    select(-Active) %>%
+    na.omit() %>%
+    mutate(cum_rate = Cases/(cumsum(Population)/ 1:n())) %>%
+    tail()
+
+gen_df %>%
+    tail() %>%
+    mutate(Confirmed / Population)
 
 fed_json_files <- list_remote_data("raw_files", scraper_name = "federal")
 
