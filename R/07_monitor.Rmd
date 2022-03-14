@@ -79,11 +79,47 @@ pop_plot <- pop_df %>%
 ggplotly(pop_plot)
 ```
 
+## Cumulative Cases
+
+```{r warning=F, message=F, echo=FALSE}
+cc_plot <- pop_df %>%
+    filter(Date >= ymd("2020-10-16")) %>%
+    filter(Date != ymd("2021-05-11")) %>% 
+    ggplot(aes(x = Date, y=Cases)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    geom_point(size=2.5,color = "#D7790F") +
+    theme_behindbars() +
+    scale_color_bbdiscrete() +
+    scale_y_continuous(limits = c(0,NA)) +
+    labs(y="Cumulative Cases", color = "")
+
+ggplotly(cc_plot)
+```
+
+## Population Actively Infected
+
+```{r warning=F, message=F, echo=FALSE}
+ca_plot <- pop_df %>%
+    filter(Date >= "2020-10-16") %>%
+    ggplot(aes(x = Date, y=Active)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    geom_point(size=2.5,color = "#D7790F") +
+    theme_behindbars() +
+    scale_color_bbdiscrete() +
+    scale_y_continuous(limits = c(0,NA)) +
+    labs(y="Active Cases", color = "")
+
+ggplotly(ca_plot)
+```
+
 ## Percent Population Actively Infected
 
 ```{r warning=F, message=F, echo=FALSE}
 active_plot <- pop_df %>%
+    arrange(Date) %>%
+    mutate(Population = last_not_na(Population)) %>%
     filter(Date >= "2020-10-16") %>%
+    filter(Date != "2021-05-25") %>%
     mutate(AR = Active / Population) %>%
     mutate(NCR = New_Cases/ Population) %>%
     select(Date, AR, NCR) %>%
@@ -101,6 +137,7 @@ active_plot <- pop_df %>%
 
 ggplotly(active_plot)
 ```
+
 
 ## New Tests Administered
 
@@ -121,10 +158,27 @@ ggplotly(new_tests_plot)
 
 ```
 
-## Test Positivity Rate
+## Testing Rate
 
 ```{r warning=F, message=F, echo=FALSE}
 test_rate_plot <- pop_df %>%
+    mutate(AR = Active / Population) %>%
+    mutate(NTR = New_Tests/ Population) %>%
+    select(Date, NTR) %>%
+    filter(!is.na(NTR)) %>%
+    ggplot(aes(x = Date, y = NTR*10000)) +
+    geom_line(size=1.25, color = "#D7790F") +
+    geom_point(size=2.5, color = "#D7790F") +
+    theme_behindbars() +
+    labs(y="Testing Rate Per 10,000\n(Past 14 days)")
+
+ggplotly(test_rate_plot)
+```
+
+## Test Positivity Rate
+
+```{r warning=F, message=F, echo=FALSE}
+test_pos_plot <- pop_df %>%
     filter(Date >= "2020-10-16") %>%
     mutate(AR = Active / Population) %>%
     mutate(NCR = New_Cases/ Population) %>%
@@ -136,8 +190,9 @@ test_rate_plot <- pop_df %>%
     theme_behindbars() +
     labs(y="Test Positivity Rate\n(Past 14 days)")
 
-ggplotly(test_rate_plot)
+ggplotly(test_pos_plot)
 ```
+
 
 ## Case Outbreaks (Active Cases)
 
@@ -158,9 +213,10 @@ active_fac_plot <- hist_imm %>%
     theme_behindbars() +
     theme(legend.position = "none") +
     labs(y="Active Cases")
-    
+
 ggplotly(active_fac_plot)
 ```
+
 
 ## Case Outbreaks (New Cases)
 
@@ -190,3 +246,4 @@ new_case_fac_plot <- hist_imm_ncr %>%
     
 ggplotly(new_case_fac_plot)
 ```
+

@@ -115,6 +115,23 @@ comp_plot <- pop_df %>%
 
 ggplotly(comp_plot)
 
+pop_df %>%
+    filter(!is.na(Population) & !is.na(New_Cases)) %>%
+    bind_rows(gen_df) %>%
+    mutate(NCR = New_Cases / Population * 10000) %>%
+    filter(Date >= "2020-02-16") %>%
+    select(Date, NCR, Name) %>%
+    arrange(Date, Name) %>%
+    group_by(Date) %>%
+    filter(n() == 2) %>%
+    summarize(Ratio = first(NCR)/last(NCR)) %>%
+    ggplot(aes(x = Date, y=Ratio)) +
+    geom_line(size=2, color = "#D7790F") +
+    theme_behindbars() +
+    labs(y="New Cases Ratio", color = "") +
+    scale_x_date(breaks = scales::pretty_breaks(n = 6)) +
+    ylim(c(0,NA))
+
 
 NCR_df <- pop_df %>%
     filter(!is.na(Population) & !is.na(New_Cases)) %>%
@@ -125,7 +142,9 @@ pop_df %>%
     filter(!is.na(Population) & !is.na(New_Cases)) %>%
     bind_rows(gen_df) %>%
     mutate(NCR = New_Cases / Population * 10000) %>%
-    filter(Date == "2021-04-16") %>%
+    group_by(Name) %>%
+    filter(Date == max(Date)) %>%
+    ungroup() %>%
     pull(NCR) %>%
     {first(.)/last(.)}
 
